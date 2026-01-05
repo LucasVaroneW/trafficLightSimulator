@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador de Tráfico Inteligente - Modular Evolution</title>
+    <link rel="stylesheet" href="css/styles.css">
+
+    <!-- Scripts Lógicos -->
+    <script src="js/Car.js"></script>
+    <script src="js/Road.js"></script>
+    <script src="js/TrafficLight.js"></script>
+    <script src="js/Sensor.js"></script>
+    <script src="js/Navigator.js"></script>
+
+    <!-- Controladores de Tráfico (Fase 3) -->
+    <script src="js/controllers/TrafficController.js"></script>
+    <script src="js/controllers/FixedTimeController.js"></script>
+    <script src="js/controllers/AdaptiveController.js"></script>
+
+    <!-- Scripts de Renderizado -->
+    <script src="js/renderer/Renderer.js"></script>
+    <script src="js/renderer/DOMRenderer.js"></script>
+
+    <!-- Core -->
+    <script src="js/Simulator.js"></script>
+    <script src="js/main.js"></script>
+</head>
+
+<body>
+    <!-- Panel de Control Avanzado -->
+    <div class="control-panel">
+        <h3>🎛️ Panel de Control</h3>
+
+        <!-- Modo de Semáforo -->
+        <div class="control-group">
+            <label>🚦 Modo de Control:</label>
+            <select id="selModoTL" class="control-select">
+                <option value="adaptive" selected>🧠 Adaptativo (Sensores)</option>
+                <option value="fixed">⏱️ Tiempos Fijos</option>
+            </select>
+        </div>
+
+        <!-- Tiempos de Semáforo -->
+        <div class="control-group">
+            <label>🟢 Verde Principal: <span id="valPri">120</span>s</label>
+            <input type="range" id="txtPri" min="10" max="180" value="120" class="slider">
+        </div>
+
+        <div class="control-group">
+            <label>🟢 Verde Secundaria: <span id="valSec">5</span>s</label>
+            <input type="range" id="txtSec" min="3" max="30" value="5" class="slider">
+        </div>
+
+        <div class="control-group">
+            <label>⏳ Intervalo Mínimo: <span id="valInt">30</span>s</label>
+            <input type="range" id="txtInt" min="5" max="60" value="30" class="slider">
+        </div>
+
+        <div class="control-group">
+            <label>🚗 Límite Autos Sec.: <span id="valMaxAutos">5</span></label>
+            <input type="range" id="txtMaxAutos" min="1" max="15" value="5" class="slider">
+        </div>
+
+        <!-- Control de Densidad de Tráfico -->
+        <div class="control-group">
+            <label>🚙 Densidad Principal: <span id="valDensityMain">3</span>s</label>
+            <input type="range" id="densityMain" min="1" max="10" value="3" step="0.5" class="slider">
+        </div>
+
+        <!-- Botón de Aplicar Cambios -->
+        <button id="btnApply" class="btn-apply">✅ Aplicar Cambios</button>
+    </div>
+
+    <!-- Panel de Información Mejorado -->
+    <div class="info-panel">
+        <h3>📊 Estado del Sistema</h3>
+        <div class="info-item">
+            <span class="info-label">🚗 Autos Cruzados:</span>
+            <span class="info-value" id="autosCount">0</span>
+        </div>
+        <div class="info-item">
+            <span class="info-label">🚦 Estado:</span>
+            <span class="info-value" id="statusTxt">Inactivo</span>
+        </div>
+        <div class="info-item timer-display">
+            <span class="info-label">⏱️ Tiempo:</span>
+            <span class="info-value timer-value" id="timer">0</span>
+        </div>
+    </div>
+
+    <!-- Controles (Botones superiores) -->
+    <div class="controls">
+        <button id="btnPlay">▶ Play</button>
+        <button id="btnStop">■ Stop</button>
+    </div>
+
+    <div id="scene" class="scene">
+        <!-- Carreteras -->
+        <div class="main-road"></div>
+        <div class="secondary-road"></div>
+
+        <!-- Líneas de carretera -->
+        <div class="center-line-v"></div>
+        <div class="center-line-h"></div>
+
+        <!-- Semáforos -->
+        <div id="pri1" class="traffic-light p1">
+            <div class="bulb"></div>
+            <div class="bulb"></div>
+            <div class="bulb"></div>
+        </div>
+        <div id="pri2" class="traffic-light p2">
+            <div class="bulb"></div>
+            <div class="bulb"></div>
+            <div class="bulb"></div>
+        </div>
+        <div id="sec1" class="traffic-light horizontal s1">
+            <div class="bulb"></div>
+            <div class="bulb"></div>
+            <div class="bulb"></div>
+        </div>
+        <div id="sec2" class="traffic-light horizontal s2">
+            <div class="bulb"></div>
+            <div class="bulb"></div>
+            <div class="bulb"></div>
+        </div>
+
+        <!-- Sensores -->
+        <div id="sV1" class="sensor s1"></div>
+        <div id="sV2" class="sensor s2"></div>
+
+        <!-- Botones de Acción (Spawn) -->
+        <button class="btn-spawn btn-left" data-side="left">Añadir Auto ➔</button>
+        <button class="btn-spawn btn-right" data-side="right">⬅ Añadir Auto</button>
+    </div>
+
+    <div style="text-align: center; margin-top: 10px; font-size: 12px; color: #666;">
+        Fase 1: Desacoplamiento de Lógica y Renderizado Completado
+    </div>
+</body>
+
+</html>
