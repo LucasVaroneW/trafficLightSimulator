@@ -480,13 +480,4 @@ Este proyecto está bajo la Licencia MIT. Ver archivo `LICENSE` para más detall
 
 ---
 
-## 📞 Soporte
-
-¿Tienes preguntas o problemas?
-- 📧 Email: [tu-email@ejemplo.com]
-- 🐛 Issues: [GitHub Issues](https://github.com/tu-usuario/simuladorSemaforos/issues)
-- 💬 Discusiones: [GitHub Discussions](https://github.com/tu-usuario/simuladorSemaforos/discussions)
-
----
-
 **¡Disfruta experimentando con el simulador!** 🚦🚗💨
