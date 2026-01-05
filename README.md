@@ -467,8 +467,8 @@ Este proyecto está bajo la Licencia MIT. Ver archivo `LICENSE` para más detall
 
 ## 👨‍💻 Autor
 
-**Micay Lucas**
-- GitHub: [@micaylucas](https://github.com/micaylucas)
+**LucasVaroneW**
+- GitHub: [@LucasVaroneW]([https://github.com/micaylucas](https://github.com/LucasVaroneW/))
 
 ---
 
