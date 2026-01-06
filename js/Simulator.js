@@ -124,6 +124,12 @@ class Simulator {
             this.sensor.resetCounter();
         }
 
+        if (oldMode !== 'principal' && newMode === 'principal') {
+            // Forzar re-detección de autos que llegaron durante el rojo
+            // Esto asegura que si un auto espera en el sensor, dispare el evento inmediatamente
+            this.sensor.resetCarSensors(this.cars);
+        }
+
         this._checkDeadlocks(); // Nueva supervisión
         this._updateUI();
     }

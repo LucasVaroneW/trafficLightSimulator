@@ -5,14 +5,37 @@
 class AdaptiveController extends TrafficController {
     constructor(trafficLight) {
         super(trafficLight);
+        this.elapsedSecondaryTime = 0; // Temporizador absoluto para evitar bloqueo infinito
+        this.MAX_SEC_TIME = 20; // Tiempo máximo (segundos) que la secundaria puede estar en verde, pase lo que pase
     }
 
     update() {
         const light = this.trafficLight;
         light.timer--;
 
+        // CAMBIO CRÍTICO: En modo PRINCIPAL, si llega a 0, NO cambiar automáticamente
+        // Solo cambiar cuando haya demanda (sensor detecte auto)
         if (light.timer < 0) {
-            this._handleTimeout(light);
+            if (light.mode === TrafficLight.MODES.PRINCIPAL) {
+                light.timer = 0;
+            } else {
+                this._handleTimeout(light);
+                this.elapsedSecondaryTime = 0; // Resetear contador al cambiar
+            }
+        }
+
+        // CONTROL DE LÍMITE ABSOLUTO EN SECUNDARIA
+        if (light.mode === TrafficLight.MODES.SECUNDARIA) {
+            // Corrección: update se llama cada 1 segundo (según Simulator.js).
+            // Entonces simplemente incrementamos.
+            this.elapsedSecondaryTime++;
+
+            if (this.elapsedSecondaryTime >= this.MAX_SEC_TIME) {
+                light.timer = 0; // FORZAR EL CORTE POR TIEMPO MÁXIMO
+                console.log("🚨 CORTE FORZADO: La secundaria excedió el tiempo máximo permitido.");
+            }
+        } else {
+            this.elapsedSecondaryTime = 0;
         }
     }
 
@@ -43,12 +66,12 @@ class AdaptiveController extends TrafficController {
             if (light.mode === TrafficLight.MODES.PRINCIPAL) {
                 const timeInGreen = config.priGreen - light.timer;
 
-                if (timeInGreen >= config.intervalo) {
-                    // Ya pasó el tiempo mínimo de verde principal -> Cambiar a amarillo YA
-                    light.timer = 0;
-                    console.log("Sensor activado: Cambio a verde secundario automático (Intervalo cumplido).");
+                if (timeInGreen >= config.intervalo || light.timer === 0) {
+                    // Ya pasó el intervalo mínimo O el timer está en 0 (esperando) → Cambiar YA
+                    console.log("🚨 Sensor activado: Cambio INMEDIATO a amarillo.");
+                    light.setMode(TrafficLight.MODES.AMARILLO, config.amarillo);
                 } else {
-                    // Aún no cumple el tiempo mínimo -> Programar cambio para el futuro más cercano
+                    // Aún no cumple el tiempo mínimo → Programar cambio para el futuro más cercano
                     const remainingToInterval = config.intervalo - timeInGreen;
                     if (light.timer > remainingToInterval) {
                         light.timer = remainingToInterval;

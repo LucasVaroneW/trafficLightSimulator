@@ -21,13 +21,17 @@ class Sensor {
         const state = this.trafficLight.getState();
         const secondaryCars = cars.filter(c => c.type === 'secondary');
 
+        let anyCarWaiting = false;
+
         secondaryCars.forEach(car => {
             const isOverSensor = this._checkOverlap(car);
 
-            if (state.mode === 'principal' && isOverSensor && !car.inSensor) {
-                car.inSensor = true;
-                const timeElapsed = config.priGreen - state.timer;
-                this.trafficLight.triggerSecondaryChange(timeElapsed);
+            if (state.mode === 'principal' && isOverSensor) {
+                // BUGFIX CRÍTICO: No confiamos solo en la transición entra/sale (!car.inSensor)
+                // Si el semáforo está en Principal y hay un auto encima, GRITAMOS CADA FRAME.
+                // El controlador AdaptiveController se encargará de filtrar si ya atendió el pedido.
+                if (!car.inSensor) car.inSensor = true;
+                anyCarWaiting = true;
             }
 
             if (state.mode === 'secundaria') {
@@ -40,6 +44,12 @@ class Sensor {
                 }
             }
         });
+
+        // Si estamos en principal y hay alguien esperando, enviamos señal continua
+        if (state.mode === 'principal' && anyCarWaiting) {
+            const timeElapsed = config.priGreen - state.timer;
+            this.trafficLight.triggerSecondaryChange(timeElapsed);
+        }
     }
 
     /**
