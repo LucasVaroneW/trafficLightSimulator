@@ -1,7 +1,7 @@
 class Car {
     // Constantes de física
-    static ACCELERATION = 0.05;
-    static DECELERATION = 0.25;
+    static ACCELERATION = 0.08;  // Aceleración más suave
+    static DECELERATION = 0.20;  // Frenada más suave
     static MIN_GAP = 85;
     static COLORS = ['blue', 'redc', 'orange', 'greenc'];
     static nextId = 0; // Contador global de IDs
@@ -27,8 +27,8 @@ class Car {
         this.side = config.side;
 
         // Física del vehículo
-        // Autos principales más rápidos para evitar congestión
-        this.maxSpeed = this.type === 'main' ? 2.3 + Math.random() : 2.2;
+        // Velocidades balanceadas para flujo natural
+        this.maxSpeed = this.type === 'main' ? 2.0 + Math.random() : 1.8 + Math.random();
         this.currentSpeed = 0;
         this.angle = 0;
 
@@ -77,11 +77,30 @@ class Car {
         }
 
         // --- FÍSICA (BODY) ---
-        if (shouldAccel) {
-            this.currentSpeed = Math.min(this.maxSpeed, this.currentSpeed + Car.ACCELERATION);
-            this.stoppedTime = 0;
+        // Determinar si estamos girando para ajustar velocidad
+        const isTurning = this._isTurning();
+
+        // Velocidad objetivo según situación
+        let targetSpeed;
+        if (!shouldAccel) {
+            targetSpeed = 0;
+        } else if (isTurning) {
+            // Reducir velocidad al 70% cuando está girando
+            targetSpeed = this.maxSpeed * 0.7;
         } else {
-            this.currentSpeed = Math.max(0, this.currentSpeed - Car.DECELERATION);
+            targetSpeed = this.maxSpeed;
+        }
+
+        // Aceleración/desaceleración suaves con diferentes tasas
+        if (this.currentSpeed < targetSpeed) {
+            // Acelerando
+            const accelRate = isTurning ? Car.ACCELERATION * 0.6 : Car.ACCELERATION;
+            this.currentSpeed = Math.min(targetSpeed, this.currentSpeed + accelRate);
+            this.stoppedTime = 0;
+        } else if (this.currentSpeed > targetSpeed) {
+            // Desacelerando
+            const decelRate = isTurning ? Car.DECELERATION * 0.5 : Car.DECELERATION;
+            this.currentSpeed = Math.max(targetSpeed, this.currentSpeed - decelRate);
             if (this.currentSpeed < 0.1) this.currentSpeed = 0;
             // Solo contamos tiempo detenido si NO es por semáforo (es decir, bloqueo real)
             if (canMove || stopReason === 'YELLOW_BOX') this.stoppedTime++;
@@ -95,6 +114,24 @@ class Car {
         if (this.currentSpeed > 0) {
             this._moveTowardsWaypoint();
         }
+    }
+
+    /**
+     * Detecta si el auto está actualmente en medio de un giro
+     */
+    _isTurning() {
+        if (this.turnType === 'straight') return false;
+
+        const target = this.path[this.currentWaypointIndex + 1];
+        if (!target) return false;
+
+        const dx = target.x - this.x;
+        const dy = target.y - this.y;
+        const targetAngle = Math.atan2(dy, dx) * (180 / Math.PI) + 90;
+        const angleDiff = Math.abs(this._normalizeAngle(targetAngle - this.angle));
+
+        // Considera que está girando si la diferencia angular es > 15°
+        return angleDiff > 15;
     }
 
     _isApproachingIntersection() {
