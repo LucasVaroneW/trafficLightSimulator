@@ -121,9 +121,16 @@ class Navigator {
         // Determinar tipo de giro
         let turnType = 'straight';
         if (key.includes('TO')) {
-            // Lógica para determinar si es izq o der basado en las rutas definidas
-            const isLeft = ['NORTH_TO_EAST', 'SOUTH_TO_WEST', 'WEST_TO_NORTH', 'EAST_TO_SOUTH'].includes(key);
-            turnType = isLeft ? 'left' : 'right';
+            // Giros a la IZQUIERDA (cruzan tráfico opuesto)
+            const leftTurns = ['NORTH_TO_WEST', 'SOUTH_TO_EAST', 'WEST_TO_NORTH', 'EAST_TO_SOUTH'];
+            // Giros a la DERECHA (cerrados, no cruzan)
+            const rightTurns = ['NORTH_TO_EAST', 'SOUTH_TO_WEST', 'WEST_TO_SOUTH', 'EAST_TO_NORTH'];
+
+            if (leftTurns.includes(key)) {
+                turnType = 'left';
+            } else if (rightTurns.includes(key)) {
+                turnType = 'right';
+            }
         }
 
         return {

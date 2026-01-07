@@ -482,7 +482,11 @@ input {
 .p1 { left: 535px; top: 180px; }
 .p2 { left: 340px; top: 400px; }
 .s1 { left: 300px; top: 200px; }
-.s2 { left: 570px; top: 380px; }
+.s2 { 
+    left: 570px; 
+    top: 380px;
+    transform: rotate(270deg); /* 90deg base + 180deg adicional = 270deg total */
+}
 
 
 /* ===== SENSORES ===== */
