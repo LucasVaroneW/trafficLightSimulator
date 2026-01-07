@@ -275,7 +275,15 @@ class Simulator {
         }
 
         this.uiElements.statusTxt.textContent = statusText;
-        this.uiElements.timer.textContent = state.timer + 's';
+
+        // DOBLE TIMER: Mostrar ambos timers para fase principal
+        if (state.mode === 'principal') {
+            const elapsed = this.trafficLight.config.priGreen - this.trafficLight.emergencyTimer;
+            const minRemaining = Math.max(0, this.trafficLight.minimumTimer);
+            this.uiElements.timer.textContent = `${elapsed}s / ${minRemaining}s`;
+        } else {
+            this.uiElements.timer.textContent = state.timer + 's';
+        }
 
         // Mostrar conteo total de ambas manos
         const leftCount = this.sensor.getCount('left');

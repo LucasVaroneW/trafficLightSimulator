@@ -31,6 +31,7 @@ class TrafficLight {
 
         // Tracking de qué mano horizontal debe activarse
         this.nextHorizontalPhase = null;  // 'left', 'right', o null
+        this.lastEmergencyPhase = null;   // Para alternar en emergencias consecutivas
 
         // El controlador se asignará externamente o por defecto
         this.controller = null;

@@ -26,12 +26,18 @@ class AdaptiveController extends TrafficController {
             // CASO 1: Timer de emergencia llega a 0 → cambio forzado
             if (light.emergencyTimer <= 0) {
                 console.log("🚨 EMERGENCIA: Timer de 120s expiró, cambio forzado a horizontal");
-                // Ciclar entre izquierda y derecha en caso de emergencia
-                if (!light.nextHorizontalPhase || light.nextHorizontalPhase === 'right') {
-                    light.nextHorizontalPhase = 'left';
-                } else {
+
+                // Alternar entre izquierda y derecha en emergencias sucesivas
+                if (light.lastEmergencyPhase === 'left') {
                     light.nextHorizontalPhase = 'right';
+                    light.lastEmergencyPhase = 'right';
+                } else {
+                    // Primera vez o última fue derecha → ir a izquierda
+                    light.nextHorizontalPhase = 'left';
+                    light.lastEmergencyPhase = 'left';
                 }
+
+                console.log(`→ Activando carril: ${light.nextHorizontalPhase}`);
                 light.setMode(MODES.AMARILLO, light.config.amarillo);
                 return;
             }

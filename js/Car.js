@@ -27,7 +27,8 @@ class Car {
         this.side = config.side;
 
         // Física del vehículo
-        this.maxSpeed = this.type === 'main' ? 1.8 + Math.random() : 2.2;
+        // Autos principales más rápidos para evitar congestión
+        this.maxSpeed = this.type === 'main' ? 2.3 + Math.random() : 2.2;
         this.currentSpeed = 0;
         this.angle = 0;
 
@@ -176,19 +177,24 @@ class Car {
             this.y += vy;
 
             // Calcular ángulo objetivo
-            // atan2 devuelve radianes, los pasamos a grados
-            // Ajustamos +90 para que el "Top" del CSS (donde están las luces) sea el frente
             const targetAngle = Math.atan2(vy, vx) * (180 / Math.PI) + 90;
 
-            // Interpolación suave del ángulo para giros más realistas
-            // Esto evita rotaciones bruscas y hace que el auto "gire" gradualmente
+            // Interpolación suave del ángulo con easing
             const angleDiff = this._normalizeAngle(targetAngle - this.angle);
-            const rotationSpeed = 8; // Grados por frame
 
-            if (Math.abs(angleDiff) < rotationSpeed) {
+            // Velocidad de rotación adaptativa basada en la diferencia angular
+            // Más rápido al principio, más lento al final (easing out)
+            const maxRotationSpeed = 15; // Grados por frame
+            const minRotationSpeed = 3;  // Grados por frame
+
+            // Función de easing: cuanto mayor es angleDiff, mayor es la velocidad
+            const t = Math.min(Math.abs(angleDiff) / 90, 1); // Normalizar a [0,1]
+            const easedSpeed = minRotationSpeed + (maxRotationSpeed - minRotationSpeed) * t;
+
+            if (Math.abs(angleDiff) < easedSpeed) {
                 this.angle = targetAngle;
             } else {
-                this.angle += Math.sign(angleDiff) * rotationSpeed;
+                this.angle += Math.sign(angleDiff) * easedSpeed;
                 this.angle = this._normalizeAngle(this.angle);
             }
         }
