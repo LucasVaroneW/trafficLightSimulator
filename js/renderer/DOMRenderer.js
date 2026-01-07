@@ -43,7 +43,7 @@ class DOMRenderer extends Renderer {
         if (el) {
             this._updatePos(car, el);
 
-            // Actualizar luces de giro
+            // Actualizar luces de giro (CORREGIDO: sin invertir)
             const leftSignal = el.querySelector('.turn-left');
             const rightSignal = el.querySelector('.turn-right');
 
@@ -87,6 +87,32 @@ class DOMRenderer extends Renderer {
                 this._setBulb('pri2', 'yellow');
                 this._setBulb('sec1', 'red');
                 this._setBulb('sec2', 'red');
+                break;
+            case 'horizontal_left':
+                // Solo mano izquierda en verde (sec1), derecha en rojo
+                this._setBulb('sec1', 'green');
+                this._setBulb('sec2', 'red');
+                this._setBulb('pri1', 'red');
+                this._setBulb('pri2', 'red');
+                break;
+            case 'amarillo_hl':
+                this._setBulb('sec1', 'yellow');
+                this._setBulb('sec2', 'red');
+                this._setBulb('pri1', 'red');
+                this._setBulb('pri2', 'red');
+                break;
+            case 'horizontal_right':
+                // Solo mano derecha en verde (sec2), izquierda en rojo
+                this._setBulb('sec1', 'red');
+                this._setBulb('sec2', 'green');
+                this._setBulb('pri1', 'red');
+                this._setBulb('pri2', 'red');
+                break;
+            case 'amarillo_hr':
+                this._setBulb('sec1', 'red');
+                this._setBulb('sec2', 'yellow');
+                this._setBulb('pri1', 'red');
+                this._setBulb('pri2', 'red');
                 break;
             case 'secundaria':
                 this._setBulb('sec1', 'green');

@@ -46,16 +46,44 @@ class Car {
     update(canMove, otherCars = []) {
         if (this.currentWaypointIndex >= this.path.length - 1) return;
 
-        let hasCollision = this._checkCollisions(otherCars);
-        let shouldMove = canMove && !hasCollision;
+        // --- LÓGICA DE DECISIÓN (BRAIN) ---
+        let shouldAccel = true;
+        let stopReason = null;
 
-        if (shouldMove) {
+        // 1. Semáforo / Stop Zone
+        if (!canMove) { // provided by Simulator based on lights & STOP zone overlap
+            shouldAccel = false;
+            stopReason = 'LIGHT';
+        }
+
+        // 2. Colisiones Inmediatas (Coche de adelante)
+        const collision = this._checkCollisions(otherCars);
+        if (collision) {
+            shouldAccel = false;
+            stopReason = 'COLLISION';
+        }
+
+        // 3. REGLA DE CAJA AMARILLA (Yellow Box) - FASE 7
+        // Si tengo luz verde (canMove es true) PERO estoy a punto de entrar al cruce...
+        // debo verificar si tengo salida.
+        if (shouldAccel && this._isApproachingIntersection()) {
+            const exitClear = this._checkExitClear(otherCars);
+            if (!exitClear) {
+                shouldAccel = false;
+                stopReason = 'YELLOW_BOX';
+                // console.log(`Auto ${this.id} esperando por Yellow Box Rule`);
+            }
+        }
+
+        // --- FÍSICA (BODY) ---
+        if (shouldAccel) {
             this.currentSpeed = Math.min(this.maxSpeed, this.currentSpeed + Car.ACCELERATION);
             this.stoppedTime = 0;
         } else {
             this.currentSpeed = Math.max(0, this.currentSpeed - Car.DECELERATION);
             if (this.currentSpeed < 0.1) this.currentSpeed = 0;
-            if (canMove) this.stoppedTime++; // Solo contamos si el semáforo deja pasar pero algo me frena
+            // Solo contamos tiempo detenido si NO es por semáforo (es decir, bloqueo real)
+            if (canMove || stopReason === 'YELLOW_BOX') this.stoppedTime++;
         }
 
         // Activar luz de giro cerca del centro (entre waypoint 0 y 1 si hay curva)
@@ -66,6 +94,69 @@ class Car {
         if (this.currentSpeed > 0) {
             this._moveTowardsWaypoint();
         }
+    }
+
+    _isApproachingIntersection() {
+        // Simple: Si estoy cerca del centro pero aún no he entrado
+        // Distancia al centro < 140 (aprox stop line) y > 100 (inicio cruce real)
+        const centerX = 450, centerY = 325;
+        const dist = Math.sqrt((this.x - centerX) ** 2 + (this.y - centerY) ** 2);
+        return dist < 140 && dist > 110;
+    }
+
+    _checkExitClear(otherCars) {
+        // Determinar zona de salida basada en mi dirección final (después del giro)
+        // Simplificación: Miramos mi último waypoint o deducimos.
+        // O más robusto: Si soy 'main' y voy recto, mi salida es 'STRAIGHT_...'
+
+        // Estrategia simplificada para RHT:
+        // Si voy al Norte, reviso x=490, y < 265
+        // Si voy al Sur, reviso x=410, y > 385
+        // Si voy al Este, reviso y=365, x > 530
+        // Si voy al Oeste, reviso y=285, x < 370
+
+        let targetZone = null;
+
+        // Deducir dirección final
+        // Si voy recto main up (-1) -> Norte
+        // Si giro derecha main up -> Este
+        // Si giro izq main up -> Oeste
+
+        // Lógica bruta basada en path final:
+        const lastWP = this.path[this.path.length - 1];
+
+        if (lastWP.y < 0) { // Norte
+            targetZone = { x: 490, yMin: -999, yMax: 275, vertical: true };
+        } else if (lastWP.y > 700) { // Sur
+            targetZone = { x: 410, yMin: 375, yMax: 999, vertical: true };
+        } else if (lastWP.x > 900) { // Este
+            targetZone = { y: 365, xMin: 520, xMax: 999, vertical: false };
+        } else if (lastWP.x < 0) { // Oeste
+            targetZone = { y: 285, xMin: -999, xMax: 380, vertical: false };
+        }
+
+        if (!targetZone) return true; // No sé a dónde voy, asumo libre (fallback)
+
+        // Verificar si hay alguien ESTANCADO en esa zona
+        // Un auto moviéndose rápido no cuenta como bloqueo, pero uno lento o parado sí.
+        const blockedBy = otherCars.find(c => {
+            if (c === this) return false;
+
+            // Chequear si 'c' está en targetZone
+            let inZone = false;
+            if (targetZone.vertical) {
+                // Margen lateral de 20px
+                inZone = Math.abs(c.x - targetZone.x) < 30 && c.y >= targetZone.yMin && c.y <= targetZone.yMax;
+            } else {
+                inZone = Math.abs(c.y - targetZone.y) < 30 && c.x >= targetZone.xMin && c.x <= targetZone.xMax;
+            }
+
+            // Si está en la zona y está lento/parado (< 0.5 vel), es un bloqueo.
+            // Si se mueve rápido, asumimos que liberará el espacio.
+            return inZone && c.currentSpeed < 0.5;
+        });
+
+        return !blockedBy;
     }
 
     _moveTowardsWaypoint() {
@@ -84,11 +175,32 @@ class Car {
             this.x += vx;
             this.y += vy;
 
-            // Calcular ángulo (en grados)
+            // Calcular ángulo objetivo
             // atan2 devuelve radianes, los pasamos a grados
             // Ajustamos +90 para que el "Top" del CSS (donde están las luces) sea el frente
-            this.angle = Math.atan2(vy, vx) * (180 / Math.PI) + 90;
+            const targetAngle = Math.atan2(vy, vx) * (180 / Math.PI) + 90;
+
+            // Interpolación suave del ángulo para giros más realistas
+            // Esto evita rotaciones bruscas y hace que el auto "gire" gradualmente
+            const angleDiff = this._normalizeAngle(targetAngle - this.angle);
+            const rotationSpeed = 8; // Grados por frame
+
+            if (Math.abs(angleDiff) < rotationSpeed) {
+                this.angle = targetAngle;
+            } else {
+                this.angle += Math.sign(angleDiff) * rotationSpeed;
+                this.angle = this._normalizeAngle(this.angle);
+            }
         }
+    }
+
+    /**
+     * Normaliza un ángulo para mantenerlo en el rango [-180, 180]
+     */
+    _normalizeAngle(angle) {
+        while (angle > 180) angle -= 360;
+        while (angle < -180) angle += 360;
+        return angle;
     }
 
     _checkCollisions(otherCars) {
@@ -168,14 +280,18 @@ class Car {
                     }
 
                     // --- REGLA 3: GIRO A LA IZQUIERDA (LEFT TURN YIELD) ---
-                    // Solo aplica entre pares iguales (Main vs Main, Sec vs Sec) o si la jerarquía no decidió.
+                    // Solo aplica entre pares iguales (Main vs Main, Sec vs Sec) o si lajerarquía no decidió.
                     if (this.type === other.type) {
                         const opposed = Math.abs(this.angle - other.angle) > 135 && Math.abs(this.angle - other.angle) < 225;
                         // Si vengo de frente y voy a girar a la izquierda...
                         if (this.turnType === 'left' && opposed) {
                             // Cedo ante quien sigue recto o gira a la derecha
-                            if (other.turnType === 'straight' || other.turnType === 'right') {
-                                return true;
+                            // OPTIMIZACIÓN RHT: Solo ceder si está MUY cerca (< 85px).
+                            // Si está a 100px, hay hueco para pasar.
+                            if (distSq < 85 * 85) {
+                                if (other.turnType === 'straight' || other.turnType === 'right') {
+                                    return true;
+                                }
                             }
                         }
                     }

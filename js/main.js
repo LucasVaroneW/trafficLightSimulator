@@ -44,24 +44,7 @@ window.addEventListener('DOMContentLoaded', () => {
     });
 
     // ===== CONTROLES INTERACTIVOS DEL PANEL =====
-
-    // Actualizar valores en tiempo real mientras se mueven los sliders
-    const sliders = [
-        { id: 'txtPri', display: 'valPri' },
-        { id: 'txtSec', display: 'valSec' },
-        { id: 'txtInt', display: 'valInt' },
-        { id: 'txtMaxAutos', display: 'valMaxAutos' },
-        { id: 'densityMain', display: 'valDensityMain' }
-    ];
-
-    sliders.forEach(({ id, display }) => {
-        const slider = document.getElementById(id);
-        const valueDisplay = document.getElementById(display);
-
-        slider.addEventListener('input', (e) => {
-            valueDisplay.textContent = e.target.value;
-        });
-    });
+    // Los inputs numéricos no necesitan listeners para actualizar valores visualmente
 
     // Botón "Aplicar Cambios"
     document.getElementById('btnApply').addEventListener('click', () => {

@@ -32,10 +32,10 @@ class Simulator {
 
     _getConfig() {
         return {
-            priGreen: parseInt(document.getElementById('txtPri').value),
-            secGreen: parseInt(document.getElementById('txtSec').value),
-            intervalo: parseInt(document.getElementById('txtInt').value),
-            maxAutosSec: parseInt(document.getElementById('txtMaxAutos').value),
+            priGreen: parseInt(document.getElementById('txtPriMax').value),
+            horzGreen: parseInt(document.getElementById('txtHorz').value),
+            priMinimum: parseInt(document.getElementById('txtPriMin').value),
+            maxAutosHorz: parseInt(document.getElementById('txtMaxAutos').value),
             amarillo: 1
         };
     }
@@ -88,7 +88,10 @@ class Simulator {
                 if (car.type === 'main') {
                     if (!this.trafficLight.canPass('main') && this.road.isInStopZone(car, mode)) canMove = false;
                 } else {
-                    if (!this.trafficLight.canPass('secondary') && this.road.isInStopZone(car, mode)) canMove = false;
+                    // Determinar qué mano horizontal es (left o right) basado en posición
+                    const isLeft = car.side === 'left';
+                    const roadType = isLeft ? 'horizontal-left' : 'horizontal-right';
+                    if (!this.trafficLight.canPass(roadType) && this.road.isInStopZone(car, mode)) canMove = false;
                 }
             }
 
@@ -120,13 +123,15 @@ class Simulator {
         this.trafficLight.tick();
         const newMode = this.trafficLight.mode;
 
-        if (oldMode !== 'secundaria' && newMode === 'secundaria') {
+        if (oldMode !== 'horizontal_left' && newMode === 'horizontal_left') {
+            this.sensor.resetCounter();
+        }
+        if (oldMode !== 'horizontal_right' && newMode === 'horizontal_right') {
             this.sensor.resetCounter();
         }
 
         if (oldMode !== 'principal' && newMode === 'principal') {
             // Forzar re-detección de autos que llegaron durante el rojo
-            // Esto asegura que si un auto espera en el sensor, dispare el evento inmediatamente
             this.sensor.resetCarSensors(this.cars);
         }
 
@@ -138,15 +143,53 @@ class Simulator {
      * Supervisa colapsos de tráfico y aplica nudges de emergencia
      */
     _checkDeadlocks() {
-        // Si hay un auto trabado por mucho tiempo en la intersección
-        // le damos un pequeño "nudge" visual o forzamos su avance.
-        // La propia lógica de Car.js (GhostMode) ya hace el trabajo pesado,
-        // pero aquí podríamos implementar limpiezas de emergencia si fuera necesario.
-        const stuckCars = this.cars.filter(c => c.stoppedTime > 400);
-        if (stuckCars.length > 2) {
-            console.warn("Detectado posible colapso de tráfico. Limpiando intersección...");
-            // Forzamos a todos a avanzar un poco si la situación es crítica
-            // stk.stoppedTime = 0; 
+        this._resolveDeadlocks();
+    }
+
+    /**
+     * Árbitro Global de Intersección ("Deadlock Breaker")
+     * Detecta nudos de tráfico (A bloquea a B, B a C...) y fuerza una salida.
+     */
+    _resolveDeadlocks() {
+        // 1. Definir "Kill Zone" (El cuadrado central de la muerte)
+        // Coordenadas aproximadas del cruce de calles
+        const killZone = { xMin: 370, xMax: 530, yMin: 245, yMax: 405 };
+        const centerX = 450, centerY = 325;
+
+        // 2. Buscar autos TRABADOS en la zona
+        const stuckCars = this.cars.filter(car => {
+            const inZone = car.x > killZone.xMin && car.x < killZone.xMax &&
+                car.y > killZone.yMin && car.y < killZone.yMax;
+
+            // Criterio de "Trabado": Velocidad nula y lleva tiempo detenido (> 3 segs / 180 frames)
+            // Nota: stoppedTime se incrementa si canMove es true pero no avanza.
+            return inZone && car.currentSpeed < 0.2 && car.stoppedTime > 180;
+        });
+
+        // 3. Si hay un nudo (2 o más autos bloqueados mutuamente)
+        if (stuckCars.length >= 2) {
+            // Estrategia: "Salida del más apto".
+            // Priorizamos al que esté más cerca de SALIR (más lejos del centro).
+            // Esto ayuda a "descascarar" el nudo desde afuera.
+            stuckCars.sort((a, b) => {
+                const distA = (a.x - centerX) ** 2 + (a.y - centerY) ** 2;
+                const distB = (b.x - centerX) ** 2 + (b.y - centerY) ** 2;
+                return distB - distA; // Descendente: Mayor distancia primero
+            });
+
+            const winner = stuckCars[0];
+
+            if (!winner.forcedPriority) {
+                console.warn(`👮‍♂️ Árbitro Interviene: Ordenando al Auto ${winner.id} que despeje INMEDIATAMENTE.`);
+                winner.forcedPriority = true;
+                winner.color = 'orange'; // Visual feedback: Se pone en modo alerta
+                // Reset de stoppedTime para que la física agresiva actúe sin entrar en GhostMode todavía
+                winner.stoppedTime = 0;
+
+                // Forzar actualización visual inmediata para ver el cambio de color
+                this.renderer.removeCar(winner);
+                this.renderer.createCar(winner);
+            }
         }
     }
 
@@ -222,15 +265,21 @@ class Simulator {
         if (this.running) {
             const modeNames = {
                 'principal': '🟢 Verde Principal',
-                'amarillo': '🟡 Amarillo Principal',
-                'secundaria': '🟢 Verde Secundaria',
-                'amarillo_sec': '🟡 Amarillo Secundaria'
+                'amarillo': '🟡 Cambio a Horizontal',
+                'horizontal_left': '🟢 Verde Horizontal Izq',
+                'amarillo_hl': '🟡 Cambio a Principal',
+                'horizontal_right': '🟢 Verde Horizontal Der',
+                'amarillo_hr': '🟡 Cambio a Principal'
             };
             statusText = modeNames[state.mode] || state.statusText;
         }
 
         this.uiElements.statusTxt.textContent = statusText;
         this.uiElements.timer.textContent = state.timer + 's';
-        this.uiElements.autosCount.textContent = this.sensor.getCount();
+
+        // Mostrar conteo total de ambas manos
+        const leftCount = this.sensor.getCount('left');
+        const rightCount = this.sensor.getCount('right');
+        this.uiElements.autosCount.textContent = leftCount + rightCount;
     }
 }

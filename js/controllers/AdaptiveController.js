@@ -1,41 +1,77 @@
 /**
  * AdaptiveController.js
- * Lógica inteligente basada en sensores (Heredada y mejorada de la versión original).
+ * Lógica inteligente de 3 fases basada en sensores con doble timer.
  */
 class AdaptiveController extends TrafficController {
     constructor(trafficLight) {
         super(trafficLight);
-        this.elapsedSecondaryTime = 0; // Temporizador absoluto para evitar bloqueo infinito
-        this.MAX_SEC_TIME = 20; // Tiempo máximo (segundos) que la secundaria puede estar en verde, pase lo que pase
+        this.horizontalCarCount = 0; // Contador de autos que cruzan en fase horizontal
+        this.elapsedHorizontalTime = 0; // Tiempo transcurrido en fase horizontal
+        this.MAX_HORZ_TIME = 20; // Tiempo máximo absoluto para seguridad (20s)
     }
 
     update() {
         const light = this.trafficLight;
+        const MODES = TrafficLight.MODES;
+
+        // Decrementar timer principal
         light.timer--;
 
-        // CAMBIO CRÍTICO: En modo PRINCIPAL, si llega a 0, NO cambiar automáticamente
-        // Solo cambiar cuando haya demanda (sensor detecte auto)
-        if (light.timer < 0) {
-            if (light.mode === TrafficLight.MODES.PRINCIPAL) {
+        // LÓGICA PARA FASE PRINCIPAL
+        if (light.mode === MODES.PRINCIPAL) {
+            // Decrementar ambos timers
+            light.emergencyTimer--;
+            light.minimumTimer--;
+
+            // CASO 1: Timer de emergencia llega a 0 → cambio forzado
+            if (light.emergencyTimer <= 0) {
+                console.log("🚨 EMERGENCIA: Timer de 120s expiró, cambio forzado a horizontal");
+                // Ciclar entre izquierda y derecha en caso de emergencia
+                if (!light.nextHorizontalPhase || light.nextHorizontalPhase === 'right') {
+                    light.nextHorizontalPhase = 'left';
+                } else {
+                    light.nextHorizontalPhase = 'right';
+                }
+                light.setMode(MODES.AMARILLO, light.config.amarillo);
+                return;
+            }
+
+            // CASO 2: Timer mínimo expiró Y hay sensor activado
+            if (light.minimumTimer <= 0 && light.nextHorizontalPhase) {
+                console.log(`✅ Timer mínimo cumplido + sensor activo → cambio a ${light.nextHorizontalPhase}`);
+                light.setMode(MODES.AMARILLO, light.config.amarillo);
+                return;
+            }
+
+            // CASO 3: Timer normal llega a 0 (sin sensor) → quedarse esperando
+            if (light.timer < 0) {
                 light.timer = 0;
-            } else {
-                this._handleTimeout(light);
-                this.elapsedSecondaryTime = 0; // Resetear contador al cambiar
             }
         }
 
-        // CONTROL DE LÍMITE ABSOLUTO EN SECUNDARIA
-        if (light.mode === TrafficLight.MODES.SECUNDARIA) {
-            // Corrección: update se llama cada 1 segundo (según Simulator.js).
-            // Entonces simplemente incrementamos.
-            this.elapsedSecondaryTime++;
+        // LÓGICA PARA FASES HORIZONTALES (LEFT o RIGHT)
+        else if (light.mode === MODES.HORIZONTAL_LEFT || light.mode === MODES.HORIZONTAL_RIGHT) {
+            this.elapsedHorizontalTime++;
 
-            if (this.elapsedSecondaryTime >= this.MAX_SEC_TIME) {
-                light.timer = 0; // FORZAR EL CORTE POR TIEMPO MÁXIMO
-                console.log("🚨 CORTE FORZADO: La secundaria excedió el tiempo máximo permitido.");
+            // CORTE 1: Tiempo máximo de seguridad
+            if (this.elapsedHorizontalTime >= this.MAX_HORZ_TIME) {
+                console.log("🚨 CORTE: Fase horizontal excedió tiempo máximo (20s)");
+                light.timer = 0;
             }
-        } else {
-            this.elapsedSecondaryTime = 0;
+
+            // CORTE 2: Timer llega a 0 (5 segundos sin autos, o límite de autos alcanzado)
+            if (light.timer < 0) {
+                this._handleTimeout(light);
+                this.elapsedHorizontalTime = 0;
+                this.horizontalCarCount = 0;
+            }
+        }
+
+        // LÓGICA PARA AMARILLOS
+        else if (light.mode === MODES.AMARILLO || light.mode === MODES.AMARILLO_HL || light.mode === MODES.AMARILLO_HR) {
+            if (light.timer < 0) {
+                this._handleTimeout(light);
+            }
         }
     }
 
@@ -46,13 +82,35 @@ class AdaptiveController extends TrafficController {
                 light.setMode(MODES.AMARILLO, light.config.amarillo);
                 break;
             case MODES.AMARILLO:
-                light.setMode(MODES.SECUNDARIA, light.config.secGreen);
+                // Activar la fase horizontal correspondiente
+                if (light.nextHorizontalPhase === 'left') {
+                    light.setMode(MODES.HORIZONTAL_LEFT, light.config.horzGreen);
+                } else if (light.nextHorizontalPhase === 'right') {
+                    light.setMode(MODES.HORIZONTAL_RIGHT, light.config.horzGreen);
+                } else {
+                    // Por defecto, izquierda
+                    light.setMode(MODES.HORIZONTAL_LEFT, light.config.horzGreen);
+                }
                 break;
-            case MODES.SECUNDARIA:
-                light.setMode(MODES.AMARILLO_SEC, light.config.amarillo);
+            case MODES.HORIZONTAL_LEFT:
+                light.setMode(MODES.AMARILLO_HL, light.config.amarillo);
                 break;
-            case MODES.AMARILLO_SEC:
+            case MODES.AMARILLO_HL:
+                // Volver a principal
                 light.setMode(MODES.PRINCIPAL, light.config.priGreen);
+                light.emergencyTimer = light.config.priGreen;
+                light.minimumTimer = light.config.priMinimum;
+                light.nextHorizontalPhase = null;
+                break;
+            case MODES.HORIZONTAL_RIGHT:
+                light.setMode(MODES.AMARILLO_HR, light.config.amarillo);
+                break;
+            case MODES.AMARILLO_HR:
+                // Volver a principal
+                light.setMode(MODES.PRINCIPAL, light.config.priGreen);
+                light.emergencyTimer = light.config.priGreen;
+                light.minimumTimer = light.config.priMinimum;
+                light.nextHorizontalPhase = null;
                 break;
         }
     }
@@ -61,36 +119,72 @@ class AdaptiveController extends TrafficController {
         const light = this.trafficLight;
         const config = light.config;
 
-        if (event === 'car_detected_secondary') {
-            // Un auto secundario llegó a la zona de espera (pisa el sensor)
+        // EVENTO: Auto detectado en sensor IZQUIERDO
+        if (event === 'car_detected_left') {
             if (light.mode === TrafficLight.MODES.PRINCIPAL) {
-                const timeInGreen = config.priGreen - light.timer;
-
-                if (timeInGreen >= config.intervalo || light.timer === 0) {
-                    // Ya pasó el intervalo mínimo O el timer está en 0 (esperando) → Cambiar YA
-                    console.log("🚨 Sensor activado: Cambio INMEDIATO a amarillo.");
+                // Solo cambiar si el timer mínimo ya expiró
+                if (light.minimumTimer <= 0 || light.emergencyTimer <= 0) {
+                    console.log("🚦 Sensor IZQUIERDO activado → programando cambio");
+                    light.nextHorizontalPhase = 'left';
                     light.setMode(TrafficLight.MODES.AMARILLO, config.amarillo);
                 } else {
-                    // Aún no cumple el tiempo mínimo → Programar cambio para el futuro más cercano
-                    const remainingToInterval = config.intervalo - timeInGreen;
-                    if (light.timer > remainingToInterval) {
-                        light.timer = remainingToInterval;
-                        console.log(`Sensor activado: Cambio programado en ${remainingToInterval}s (esperando intervalo mínimo).`);
+                    // Guardar preferencia pero esperar al timer mínimo
+                    if (!light.nextHorizontalPhase) {
+                        light.nextHorizontalPhase = 'left';
+                        console.log(`⏳ Sensor IZQUIERDO detectado, esperando ${light.minimumTimer}s más`);
                     }
                 }
             }
         }
 
-        if (event === 'car_passed_secondary') {
-            // Un auto secundario terminó de cruzar
-            if (light.mode === TrafficLight.MODES.SECUNDARIA) {
-                const carsCount = data.count || 0;
-                if (carsCount >= config.maxAutosSec) {
-                    // Límite de autos alcanzado, terminar verde secundario
+        // EVENTO: Auto detectado en sensor DERECHO
+        if (event === 'car_detected_right') {
+            if (light.mode === TrafficLight.MODES.PRINCIPAL) {
+                // Solo cambiar si el timer mínimo ya expiró
+                if (light.minimumTimer <= 0 || light.emergencyTimer <= 0) {
+                    console.log("🚦 Sensor DERECHO activado → programando cambio");
+                    light.nextHorizontalPhase = 'right';
+                    light.setMode(TrafficLight.MODES.AMARILLO, config.amarillo);
+                } else {
+                    // Guardar preferencia pero esperar al timer mínimo
+                    if (!light.nextHorizontalPhase) {
+                        light.nextHorizontalPhase = 'right';
+                        console.log(`⏳ Sensor DERECHO detectado, esperando ${light.minimumTimer}s más`);
+                    }
+                }
+            }
+        }
+
+        // EVENTO: Auto cruzó en fase IZQUIERDA
+        if (event === 'car_passed_left') {
+            if (light.mode === TrafficLight.MODES.HORIZONTAL_LEFT) {
+                this.horizontalCarCount++;
+                console.log(`🚗 Auto ${this.horizontalCarCount} cruzó por izquierda`);
+
+                if (this.horizontalCarCount >= config.maxAutosHorz) {
+                    // Límite de autos alcanzado
+                    console.log("🛑 Límite de 5 autos alcanzado, cortando fase");
                     light.timer = 0;
                 } else {
-                    // Reiniciar el timer de verde secundario para cada auto que pasa
-                    light.timer = config.secGreen;
+                    // Reiniciar timer para dar tiempo al siguiente auto
+                    light.timer = config.horzGreen;
+                }
+            }
+        }
+
+        // EVENTO: Auto cruzó en fase DERECHA
+        if (event === 'car_passed_right') {
+            if (light.mode === TrafficLight.MODES.HORIZONTAL_RIGHT) {
+                this.horizontalCarCount++;
+                console.log(`🚗 Auto ${this.horizontalCarCount} cruzó por derecha`);
+
+                if (this.horizontalCarCount >= config.maxAutosHorz) {
+                    // Límite de autos alcanzado
+                    console.log("🛑 Límite de 5 autos alcanzado, cortando fase");
+                    light.timer = 0;
+                } else {
+                    // Reiniciar timer para dar tiempo al siguiente auto
+                    light.timer = config.horzGreen;
                 }
             }
         }

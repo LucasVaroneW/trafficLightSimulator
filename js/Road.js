@@ -10,8 +10,8 @@ class Road {
             x: 450,
             width: 160,
             lanes: {
-                down: { x: 490, direction: 1 },
-                up: { x: 410, direction: -1 }
+                down: { x: 410, direction: 1 }, // RHT: Sur va por la Izquierda (Oeste)
+                up: { x: 490, direction: -1 }   // RHT: Norte va por la Derecha (Este)
             }
         };
 
@@ -35,6 +35,19 @@ class Road {
                 right: { xMin: 285, xMax: 350 }, // Derecha (Oeste->Este)
                 left: { xMin: 550, xMax: 615 }  // Izquierda (Este->Oeste)
             }
+        };
+
+        // Zonas de SALIDA (Yellow Box Check)
+        // Espacios justo después del cruce que deben estar libres para entrar
+        this.exitZones = {
+            // Sube hacia el Norte (x=490, y < 265)
+            'STRAIGHT_NORTH': { x: 490, yMin: -200, yMax: 260 },
+            // Baja hacia el Sur (x=410, y > 385)
+            'STRAIGHT_SOUTH': { x: 410, yMin: 390, yMax: 1000 },
+            // Va hacia el Este (y=365, x > 530)
+            'STRAIGHT_EAST': { y: 365, xMin: 540, xMax: 1200 },
+            // Va hacia el Oeste (y=285, x < 370)
+            'STRAIGHT_WEST': { y: 285, xMin: -200, xMax: 360 }
         };
     }
 
