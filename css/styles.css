@@ -501,8 +501,15 @@ input {
 }
 
 /* Posiciones específicas de sensores */
+/* Posiciones específicas de sensores */
 .sensor.s1 { left: 574px; top: 271px; }
-.sensor.s2 { left: 275px; top: 349px; }
+
+.sensor.s2 { 
+    left: 275px; 
+    top: 334px;
+    width: 30px;   /* Vertical: perpendicular a calle horizontal */
+    height: 60px;
+}
 
 
 /* ===== AUTOS ===== */
