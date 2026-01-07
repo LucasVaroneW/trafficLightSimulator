@@ -272,17 +272,21 @@ class Simulator {
                 'amarillo_hr': '🟡 Cambio a Principal'
             };
             statusText = modeNames[state.mode] || state.statusText;
-        }
+            // Actualizar timer
+            // REQUEST: Mostrar solo un tiempo (el máximo descontando)
+            // Ejemplo: 120 bajando...
+            let timerValue = 0;
+            const currentLight = this.trafficLight.getState();
 
-        this.uiElements.statusTxt.textContent = statusText;
+            if (currentLight.mode === 'principal') {
+                // En verde principal, mostramos el timer de emergencia (cuenta regresiva)
+                timerValue = Math.ceil(currentLight.emergencyTimer);
+            } else {
+                // En otras fases, mostrar el timer genérico de la fase
+                timerValue = Math.ceil(currentLight.timer);
+            }
 
-        // DOBLE TIMER: Mostrar ambos timers para fase principal
-        if (state.mode === 'principal') {
-            const elapsed = this.trafficLight.config.priGreen - this.trafficLight.emergencyTimer;
-            const minRemaining = Math.max(0, this.trafficLight.minimumTimer);
-            this.uiElements.timer.textContent = `${elapsed}s / ${minRemaining}s`;
-        } else {
-            this.uiElements.timer.textContent = state.timer + 's';
+            this.uiElements.timer.textContent = timerValue + 's';
         }
 
         // Mostrar conteo total de ambas manos
