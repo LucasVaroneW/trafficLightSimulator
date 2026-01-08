@@ -14,7 +14,9 @@ class Simulator {
         this.uiElements = {
             autosCount: document.getElementById('autosCount'),
             statusTxt: document.getElementById('statusTxt'),
-            timer: document.getElementById('timer')
+            statusTxt: document.getElementById('statusTxt'),
+            timer: document.getElementById('timer'),
+            intervalDisplay: document.getElementById('intervalDisplay')
         };
 
         // Inicializar módulos de lógica
@@ -287,6 +289,10 @@ class Simulator {
             }
 
             this.uiElements.timer.textContent = timerValue + 's';
+
+            // Actualizar display de intervalo (mínimo)
+            const intervalVal = state.minimumTimer > 0 ? Math.ceil(state.minimumTimer) : 0;
+            this.uiElements.intervalDisplay.textContent = intervalVal + 's';
         }
 
         // Mostrar conteo total de ambas manos

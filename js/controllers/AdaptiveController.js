@@ -173,7 +173,7 @@ class AdaptiveController extends TrafficController {
                     light.timer = 0;
                 } else {
                     // Reiniciar timer para dar tiempo al siguiente auto
-                    light.timer = config.horzGreen;
+                    light.timer = config.horzGreen + 1;
                 }
             }
         }
@@ -190,7 +190,7 @@ class AdaptiveController extends TrafficController {
                     light.timer = 0;
                 } else {
                     // Reiniciar timer para dar tiempo al siguiente auto
-                    light.timer = config.horzGreen;
+                    light.timer = config.horzGreen + 1;
                 }
             }
         }

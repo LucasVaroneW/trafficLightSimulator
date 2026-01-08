@@ -305,7 +305,9 @@ button:active {
 .timer-dual span:last-child {
   font-family: 'Courier New', monospace;
   min-width: 70px;
-  font-size: 9px;
+  font-size: 24px; /* Aumentado de 9px a 24px */
+  font-weight: bold;
+  color: #fbff00; /* Color llamativo */
 }
 
 
